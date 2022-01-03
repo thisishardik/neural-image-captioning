@@ -12,9 +12,10 @@ from PIL import Image
 
 
 class Dataset:
-    def __init__(self, annotation_file=None, PATH=None):
+    def __init__(self, annotation_file=None, annotations=None, PATH=None):
         self.annotation_file = annotation_file
         self.PATH = PATH
+        self.annotations = annotations
 
     def get_data(self):
         annotation_folder = "/annotations/"
@@ -43,10 +44,36 @@ class Dataset:
         else:
             self.PATH = os.path.abspath(".") + image_folder
 
-    def grouping(self):
+    def group_data(self):
+        self.get_data()
         with open(self.annotation_file, "r") as f:
-            annotations = json.load(f)
+            self.annotations = json.load(f)
+        image_path_to_caption = collections.defaultdict(list)
+        for val in self.annotations["annotations"]:
+            caption = f"<start> {val['caption']} <end>"
+            image_path = self.PATH + "COCO_train2014_" + "%012d.jpg" % (val["image_id"])
+            image_path_to_caption[image_path].append(caption)
+        image_paths = list(image_path_to_caption.keys())
+        random.shuffle(image_paths)
+        train_image_paths = image_paths[:6000]
+        print(len("Training samples:", train_image_paths))
+        return image_path_to_caption, train_image_paths
+
+    def fetch_data(self):
+        image_path_to_caption, train_image_paths = self.group_data()
+        train_captions = []
+        img_name_vector = []
+
+        for image_path in train_image_paths:
+            caption_list = image_path_to_caption[image_path]
+            train_captions.extend(caption_list)
+            img_name_vector.extend([image_path] * len(caption_list))
+
+        return train_captions, img_name_vector
 
 
 if __name__ == "__main__":
-    get_data()
+    dataset = Dataset()
+    train_captions, img_name_vector = dataset.fetch_data()
+    print(train_captions[0])
+    Image.open(img_name_vector[0])
